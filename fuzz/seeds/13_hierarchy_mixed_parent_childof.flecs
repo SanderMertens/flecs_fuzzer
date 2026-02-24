@@ -1,0 +1,27 @@
+@tree Parent
+
+root {
+  parent_a {
+    @tree ChildOf
+    childof_branch {
+      level_2 {
+        @tree Parent
+        parent_branch {
+          final_a {}
+          final_b {}
+        }
+      }
+    }
+  }
+
+  @tree ChildOf
+  childof_sibling {
+    child_a {}
+    child_b {
+      @tree Parent
+      parent_nested {
+        leaf {}
+      }
+    }
+  }
+}

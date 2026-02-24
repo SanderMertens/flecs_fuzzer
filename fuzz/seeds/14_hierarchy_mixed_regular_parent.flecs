@@ -1,0 +1,24 @@
+Rel {}
+Tgt {}
+
+@tree ChildOf
+regular_root {
+  regular_a {
+    regular_b {}
+
+    @tree Parent
+    parent_zone {
+      (Rel, Tgt) {
+        p0 {
+          @tree ChildOf
+          c0 {
+            @tree Parent
+            p1 {}
+          }
+        }
+      }
+
+      p2 {}
+    }
+  }
+}

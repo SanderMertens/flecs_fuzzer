@@ -1,0 +1,21 @@
+@tree Parent
+
+scene {
+  {
+    branch_a {
+      _ {
+        leaf_a {}
+      }
+      {
+        leaf_b {}
+      }
+    }
+  }
+
+  _ {
+    named_under_placeholder {}
+    {
+      nested_anonymous {}
+    }
+  }
+}

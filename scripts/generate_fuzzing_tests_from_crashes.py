@@ -2,9 +2,8 @@
 import argparse
 import hashlib
 import re
-import subprocess
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Set, Tuple
 
 
 def discover_crash_files(out_dir: Path) -> List[Path]:
@@ -106,39 +105,10 @@ def update_fuzzing_source(
     fuzzing_c: Path,
     root_dir: Path,
     crash_files: List[Path],
+    target_numbers: List[int],
     stack_by_sha1: Dict[str, List[str]],
 ) -> int:
-    text = fuzzing_c.read_text(encoding="utf-8", errors="replace")
-
-    fn_re = re.compile(
-        r"(?P<prefix>(?:/\* crash=.*?\*/\n)?)"
-        r"void\s+Fuzzing_(\d+)\s*\(void\)\s*\{\n(?P<body>.*?)\n\}\n?",
-        re.DOTALL,
-    )
-    functions = list(fn_re.finditer(text))
-    if not functions:
-        raise RuntimeError(f"No Fuzzing_<N> functions found in {fuzzing_c}")
-
-    manual_numbers: List[int] = []
-    for match in functions:
-        number = int(match.group(2))
-        prefix = match.group("prefix")
-        if not prefix:
-            manual_numbers.append(number)
-
-    manual_max = max(manual_numbers) if manual_numbers else 0
-    target_start = manual_max + 1
-    target_numbers = list(range(target_start, target_start + len(crash_files)))
-
-    cursor = 0
-    kept_parts: List[str] = []
-    for match in functions:
-        number = int(match.group(2))
-        if number >= target_start:
-            kept_parts.append(text[cursor:match.start()])
-            cursor = match.end()
-    kept_parts.append(text[cursor:])
-    text = "".join(kept_parts).rstrip() + "\n\n"
+    text = fuzzing_c.read_text(encoding="utf-8", errors="replace").rstrip()
 
     generated_blocks = [
         fuzz_function_source(
@@ -149,7 +119,11 @@ def update_fuzzing_source(
         )
         for number, crash in zip(target_numbers, crash_files)
     ]
-    text += "\n\n".join(generated_blocks) + "\n"
+
+    if text:
+        text += "\n\n" + "\n\n".join(generated_blocks) + "\n"
+    else:
+        text = "\n\n".join(generated_blocks) + "\n"
 
     fuzzing_c.write_text(text, encoding="utf-8")
     return max(target_numbers)
@@ -184,9 +158,7 @@ def find_matching_bracket(text: str, start_index: int) -> int:
     raise RuntimeError("Could not find matching closing bracket")
 
 
-def update_fuzzing_testcases(project_json: Path, total_count: int) -> None:
-    text = project_json.read_text(encoding="utf-8")
-
+def fuzzing_testcases_span(text: str) -> Tuple[int, int]:
     suite_pos = text.find('"id": "Fuzzing"')
     if suite_pos == -1:
         raise RuntimeError("Could not find Fuzzing testsuite in project.json")
@@ -200,35 +172,49 @@ def update_fuzzing_testcases(project_json: Path, total_count: int) -> None:
         raise RuntimeError("Could not find opening [ for Fuzzing testcases")
 
     list_end = find_matching_bracket(text, list_start)
+    return list_start, list_end
 
-    values = [str(i) for i in range(1, total_count + 1)]
+
+def parse_used_fuzzing_numbers(project_json: Path) -> Set[int]:
+    text = project_json.read_text(encoding="utf-8")
+    list_start, list_end = fuzzing_testcases_span(text)
+    list_body = text[list_start + 1 : list_end]
+
+    numbers: Set[int] = set()
+    for value in re.findall(r'"([^"]+)"', list_body):
+        if re.fullmatch(r"[1-9]\d*", value):
+            numbers.add(int(value))
+    return numbers
+
+
+def allocate_fuzzing_numbers(used_numbers: Set[int], count: int) -> List[int]:
+    allocated: List[int] = []
+    candidate = 1
+    while len(allocated) < count:
+        if candidate not in used_numbers:
+            allocated.append(candidate)
+            used_numbers.add(candidate)
+        candidate += 1
+    return allocated
+
+
+def update_fuzzing_testcases(project_json: Path, new_numbers: List[int]) -> None:
+    text = project_json.read_text(encoding="utf-8")
+    list_start, list_end = fuzzing_testcases_span(text)
+
+    list_body = text[list_start + 1 : list_end]
+    values = re.findall(r'"([^"]+)"', list_body)
+    existing = set(values)
+    for number in new_numbers:
+        value = str(number)
+        if value not in existing:
+            values.append(value)
+            existing.add(value)
+
     body = "\n" + ",\n".join(f'                "{value}"' for value in values) + "\n            "
     updated = text[: list_start + 1] + body + text[list_end:]
 
     project_json.write_text(updated, encoding="utf-8")
-
-
-def find_git_root(path: Path) -> Path:
-    current = path.resolve()
-    while True:
-        if (current / ".git").exists():
-            return current
-        if current.parent == current:
-            raise RuntimeError(f"Could not find git root for {path}")
-        current = current.parent
-
-
-def reset_files(paths: List[Path]) -> None:
-    by_repo = {}
-    for path in paths:
-        repo = find_git_root(path.parent)
-        by_repo.setdefault(repo, []).append(path.resolve())
-
-    for repo, repo_paths in by_repo.items():
-        rel_paths = [str(p.relative_to(repo)) for p in repo_paths]
-        cmd = ["git", "checkout", "--", *rel_paths]
-        subprocess.run(cmd, cwd=repo, check=True)
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -278,25 +264,31 @@ def main() -> int:
     fuzzing_c = (root / args.fuzzing_c).resolve()
     asan_log_dir = (root / args.asan_log_dir).resolve()
 
-    if args.reset_first:
-        reset_files([fuzzing_c, project_json])
-
     crash_files = discover_crash_files(out_dir)
     if not crash_files:
         print(f"No crash files found under {out_dir}")
         return 1
 
     stack_by_sha1 = collect_stacks(asan_log_dir, args.stack_max_frames)
-    max_number = update_fuzzing_source(fuzzing_c, root, crash_files, stack_by_sha1)
-    update_fuzzing_testcases(project_json, max_number)
+    used_numbers = parse_used_fuzzing_numbers(project_json)
+    new_numbers = allocate_fuzzing_numbers(used_numbers, len(crash_files))
+    max_number = update_fuzzing_source(
+        fuzzing_c, root, crash_files, new_numbers, stack_by_sha1
+    )
+    update_fuzzing_testcases(project_json, new_numbers)
 
     print(f"Discovered {len(crash_files)} crash files")
     print(f"ASAN stacks matched: {len(stack_by_sha1)}")
-    print(f"Updated fuzzing tests through: Fuzzing_{max_number}")
+    if len(new_numbers) == 1:
+        print(f"Added fuzzing test: Fuzzing_{new_numbers[0]}")
+    elif new_numbers == list(range(new_numbers[0], new_numbers[-1] + 1)):
+        print(f"Added fuzzing tests: Fuzzing_{new_numbers[0]}..Fuzzing_{max_number}")
+    else:
+        values = ", ".join(f"Fuzzing_{n}" for n in new_numbers)
+        print(f"Added fuzzing tests: {values}")
     print(f"Updated: {fuzzing_c}")
     print(f"Updated: {project_json}")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
