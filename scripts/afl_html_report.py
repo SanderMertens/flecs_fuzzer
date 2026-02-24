@@ -5,6 +5,7 @@ import hashlib
 import html
 import json
 import os
+import re
 import signal
 import subprocess
 from typing import Dict, List, Optional, Tuple
@@ -99,37 +100,48 @@ def html_escape(text: str) -> str:
     return html.escape(text, quote=True)
 
 
+def extract_stack_from_log(path: str, max_frames: int) -> List[str]:
+    if not os.path.isfile(path):
+        return []
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    stack = re.findall(r"^\s*#\d+\s+.*$", text, flags=re.MULTILINE)
+    return stack[:max_frames]
+
+
+def collect_stacks(asan_log_dir: str, max_frames: int) -> Dict[str, List[str]]:
+    stacks: Dict[str, List[str]] = {}
+    if not os.path.isdir(asan_log_dir):
+        return stacks
+    for name in sorted(os.listdir(asan_log_dir)):
+        if not name.endswith(".log"):
+            continue
+        sha1 = name[:-4].lower()
+        if not re.fullmatch(r"[0-9a-f]{40}", sha1):
+            continue
+        frames = extract_stack_from_log(os.path.join(asan_log_dir, name), max_frames)
+        if frames:
+            stacks[sha1] = frames
+    return stacks
+
+
 def generate_report(
     out_dir: str,
     html_path: str,
     harness: Optional[str],
     preview_bytes: int,
+    asan_log_dir: str,
+    stack_max_frames: int,
 ) -> int:
     fuzzers = discover_fuzzers(out_dir)
     if not fuzzers:
         print(f"No AFL fuzzer outputs found in: {out_dir}")
         return 1
 
+    stack_by_sha1 = collect_stacks(asan_log_dir, stack_max_frames)
     rows: List[Dict[str, str]] = []
     by_hash: Dict[str, Dict[str, object]] = {}
-    fuzzer_stats: Dict[str, Dict[str, str]] = {}
-    total_execs = 0
-    total_execs_per_sec = 0.0
-    max_paths_total: Optional[int] = None
-
     for fuzzer in fuzzers:
-        stats = parse_stats(os.path.join(out_dir, fuzzer, "fuzzer_stats"))
-        fuzzer_stats[fuzzer] = stats
-        execs_done = parse_int(stats.get("execs_done", ""))
-        if execs_done is not None:
-            total_execs += execs_done
-        execs_per_sec = parse_float(stats.get("execs_per_sec", ""))
-        if execs_per_sec is not None:
-            total_execs_per_sec += execs_per_sec
-        paths_total = parse_int(stats.get("paths_total", ""))
-        if paths_total is not None:
-            max_paths_total = paths_total if max_paths_total is None else max(max_paths_total, paths_total)
-
         crash_dir = os.path.join(out_dir, fuzzer, "crashes")
         if not os.path.isdir(crash_dir):
             continue
@@ -185,6 +197,7 @@ def generate_report(
                 "hex_preview": hex_preview,
                 "ascii_preview": ascii_preview,
                 "script_text": script_text,
+                "stack_trace": "\n".join(stack_by_sha1.get(sha1, [])),
             }
             rows.append(row)
 
@@ -198,22 +211,6 @@ def generate_report(
             by_hash[sha1]["workers"].add(fuzzer)
 
     rows.sort(key=lambda r: (r["worker"], r["name"]))
-    now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-    summary = [
-        ("Generated (UTC)", now),
-        ("Output directory", out_dir),
-        ("HTML path", html_path),
-        ("Fuzzers", ", ".join(fuzzers)),
-        ("Worker count", str(len(fuzzers))),
-        ("Total crash files", str(len(rows))),
-        ("Unique crash contents (SHA1)", str(len(by_hash))),
-        ("Executions (sum)", str(total_execs) if total_execs else "unknown"),
-        ("Exec/sec (sum)", str(round(total_execs_per_sec, 2)) if total_execs_per_sec else "unknown"),
-        ("Paths total (max)", str(max_paths_total) if max_paths_total is not None else "unknown"),
-        ("Harness triage", harness if harness else "disabled"),
-    ]
-
     browser_rows = [
         {
             "worker": row["worker"],
@@ -237,6 +234,7 @@ def generate_report(
             "hex_preview": row["hex_preview"],
             "ascii_preview": row["ascii_preview"],
             "script_text": row["script_text"],
+            "stack_trace": row["stack_trace"],
         }
         for row in rows
     ]
@@ -285,30 +283,7 @@ pre { white-space: pre-wrap; margin: 0; overflow-wrap: anywhere; color: #e6edf3;
         out.write("<title>Flecs AFL Crash Report</title>")
         out.write(f"<style>{styles}</style></head><body>")
 
-        out.write("<h1>Flecs AFL Crash Report</h1>")
-        out.write("<table>")
-        for k, v in summary:
-            out.write("<tr>")
-            out.write(f"<th style='width:260px'>{html_escape(k)}</th>")
-            out.write(f"<td>{html_escape(v)}</td>")
-            out.write("</tr>")
-        out.write("</table>")
-
-        out.write("<h2>Fuzzer Stats</h2>")
-        out.write("<table><tr><th>Worker</th><th>execs_done</th><th>execs_per_sec</th><th>paths_total</th><th>cycles_done</th><th>last_update</th></tr>")
-        for worker in fuzzers:
-            stats = fuzzer_stats.get(worker, {})
-            out.write("<tr>")
-            out.write(f"<td>{html_escape(worker)}</td>")
-            out.write(f"<td>{html_escape(stats.get('execs_done', '-'))}</td>")
-            out.write(f"<td>{html_escape(stats.get('execs_per_sec', '-'))}</td>")
-            out.write(f"<td>{html_escape(stats.get('paths_total', '-'))}</td>")
-            out.write(f"<td>{html_escape(stats.get('cycles_done', '-'))}</td>")
-            out.write(f"<td>{html_escape(stats.get('last_update', '-'))}</td>")
-            out.write("</tr>")
-        out.write("</table>")
-
-        out.write("<h2>Crash Browser</h2>")
+        out.write("<h1>Crash Browser</h1>")
         if not rows:
             out.write("<p class='muted'>No crash files found in this AFL output.</p>")
         else:
@@ -325,6 +300,10 @@ pre { white-space: pre-wrap; margin: 0; overflow-wrap: anywhere; color: #e6edf3;
             out.write("<pre id='detail-script' class='code-block'></pre>")
             out.write("<h3>Byte Preview</h3>")
             out.write("<pre id='detail-bytes' class='code-block'></pre>")
+            out.write("<div id='detail-stack-wrap'>")
+            out.write("<h3>Generated Stack Trace</h3>")
+            out.write("<pre id='detail-stack' class='code-block'></pre>")
+            out.write("</div>")
             out.write("<div id='detail-stderr-wrap'>")
             out.write("<h3>Harness Stderr</h3>")
             out.write("<pre id='detail-stderr' class='code-block'></pre>")
@@ -343,6 +322,8 @@ const detailTitleEl = document.getElementById("detail-title");
 const detailMetaEl = document.getElementById("detail-meta");
 const detailScriptEl = document.getElementById("detail-script");
 const detailBytesEl = document.getElementById("detail-bytes");
+const detailStackWrapEl = document.getElementById("detail-stack-wrap");
+const detailStackEl = document.getElementById("detail-stack");
 const detailStderrWrapEl = document.getElementById("detail-stderr-wrap");
 const detailStderrEl = document.getElementById("detail-stderr");
 
@@ -363,7 +344,7 @@ function visibleIndexes() {
     const c = crashes[i];
     const haystack = [
       c.worker, c.name, c.path, c.id, c.sig, c.sig_name, c.src, c.time,
-      c.execs, c.op, c.rep, c.sha1, c.sha256, c.triage
+      c.execs, c.op, c.rep, c.sha1, c.sha256, c.triage, c.stack_trace
     ].join(" ").toLowerCase();
     if (haystack.includes(q)) out.push(i);
   }
@@ -453,6 +434,7 @@ function renderDetail() {
     detailMetaEl.textContent = "";
     detailScriptEl.textContent = "";
     detailBytesEl.textContent = "";
+    detailStackWrapEl.classList.add("hidden");
     detailStderrWrapEl.classList.add("hidden");
     return;
   }
@@ -462,6 +444,14 @@ function renderDetail() {
   renderMetaTable(c);
   detailScriptEl.textContent = c.script_text || "";
   detailBytesEl.textContent = `hex: ${c.hex_preview}\\n\\nascii: ${c.ascii_preview}`;
+
+  if (c.stack_trace && c.stack_trace.trim()) {
+    detailStackEl.textContent = c.stack_trace;
+    detailStackWrapEl.classList.remove("hidden");
+  } else {
+    detailStackEl.textContent = "";
+    detailStackWrapEl.classList.add("hidden");
+  }
 
   if (c.triage_stderr && c.triage_stderr.trim()) {
     detailStderrEl.textContent = c.triage_stderr;
@@ -507,13 +497,32 @@ def main() -> int:
         default=64,
         help="Number of bytes shown in hex/ascii previews",
     )
+    parser.add_argument(
+        "--asan-log-dir",
+        default=None,
+        help="Directory containing generated ASAN logs keyed by SHA1 (default: <out>/asan_report/logs)",
+    )
+    parser.add_argument(
+        "--stack-max-frames",
+        type=int,
+        default=12,
+        help="Maximum stack frames loaded from each ASAN log",
+    )
     args = parser.parse_args()
 
     out_dir = os.path.abspath(args.out)
     html_path = os.path.abspath(args.html) if args.html else os.path.join(out_dir, "crash_report.html")
+    asan_log_dir = os.path.abspath(args.asan_log_dir) if args.asan_log_dir else os.path.join(out_dir, "asan_report", "logs")
 
     os.makedirs(os.path.dirname(html_path), exist_ok=True)
-    return generate_report(out_dir, html_path, args.harness, args.preview_bytes)
+    return generate_report(
+        out_dir,
+        html_path,
+        args.harness,
+        args.preview_bytes,
+        asan_log_dir,
+        args.stack_max_frames,
+    )
 
 
 if __name__ == "__main__":

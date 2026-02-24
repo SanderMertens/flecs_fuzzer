@@ -67,3 +67,7 @@ python3 scripts/afl_html_report.py \
   --out ./out \
   --harness /tmp/flecs_script_harness_math_check
 ```
+
+If `./out/asan_report/logs` exists (from `scripts/asan_crash_report.py`), the
+HTML report also shows generated stack traces per crash. Override this location
+with `--asan-log-dir <path>`.
