@@ -3,7 +3,7 @@ set -euo pipefail
 
 DURATION_SECONDS="${1:-300}"
 OUT_DIR="${2:-$(pwd)/out}"
-WORKERS="${3:-${AFL_WORKERS:-}}"
+WORKERS="${3:-8}"
 IMAGE_TAG="${IMAGE_TAG:-flecs-script-afl}"
 
 mkdir -p "${OUT_DIR}"

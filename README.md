@@ -3,71 +3,58 @@
 This repository contains an AFL++ harness for fuzzing Flecs script parsing and
 evaluation.
 
-## What is included
+## Prerequisites
+Make sure the following prerequisites are installed:
 
-- `Dockerfile.afl`: Linux image with AFL++, Bake, Flecs build, and harness build.
-- `fuzz/flecs_script_harness.c`: file-based AFL target for Flecs script.
-- `fuzz/seeds/*.flecs`: seed corpus with valid and invalid script examples.
-- `scripts/run_fuzzer.sh`: host command to build image, run fuzzing, and print report.
-- `scripts/afl_report.py`: triage tool that reports only:
-  - `ECS_INTERNAL_ERROR` asserts
-  - hard crashes (signals / abnormal exits)
+- python3
+- docker
+- bake
 
-## One-command run
+## Usage
+To run the fuzzer for 5 minutes, run the following command:
 
-```bash
-./scripts/run_fuzzer.sh 300
+```
+./scripts/fuzz.sh
 ```
 
-Arguments:
+To run the fuzzer for a custom amount of time, add the number of seconds as argument/:
 
-- first argument: fuzz duration in seconds (default `300`)
-- second argument: host output directory (default `./out`)
-- third argument: AFL worker count (default: all detected cores in container)
-
-Example:
-
-```bash
-./scripts/run_fuzzer.sh 600 ./out 8
+```
+./scripts/fuzz.sh 3000
 ```
 
-You can also set worker count with `AFL_WORKERS`:
+Results of the fuzzer will be written to `out`.
 
-```bash
-AFL_WORKERS=8 ./scripts/run_fuzzer.sh 600 ./out
+## Reporting
+After or during a fuzzing run, you can generate stack traces for each of the found crashes with:
+
+```
+./scripts/stack_traces.py
 ```
 
-## Report behavior
+After that script finishes, run the following script to generate an HTML report of the crashes:
 
-The harness suppresses regular parser/evaluation errors from malformed input.
-The final report ignores those expected errors and includes only
-`ECS_INTERNAL_ERROR` assertions and true crashes.
-
-When multiple workers are used, fuzzing runs in AFL++ parallel mode (`-M`/`-S`)
-and the report aggregates all worker outputs.
-
-## HTML crash dashboard
-
-Generate an aggregated HTML report across all fuzzers in `out/`:
-
-```bash
-python3 scripts/afl_html_report.py --out ./out
+```
+./scripts/html_report.py
 ```
 
-This writes:
+If you run the HTML report script without the stack traces script, the generated HTML page will still show the found crashes, but without the stack trace.
 
-```text
-./out/crash_report.html
+## Testing
+To generate test cases from the found crashes, run:
+
+```
+./scripts/generate_tests.py
 ```
 
-Optional: include harness-based crash classification and stderr snippets:
+This will generate a new test case for the script/Fuzzing test suite in the linked flecs repository. To run the tests, run this from the flecs directory:
 
-```bash
-python3 scripts/afl_html_report.py \
-  --out ./out \
-  --harness /tmp/flecs_script_harness_math_check
+```
+bake run test/script -- Fuzzing -j 12
 ```
 
-If `./out/asan_report/logs` exists (from `scripts/asan_crash_report.py`), the
-HTML report also shows generated stack traces per crash. Override this location
-with `--asan-log-dir <path>`.
+Or alternatively, run the tests with address sanitizer:
+
+```
+bake run --cfg sanitize test/script -- Fuzzing -j 12
+```

@@ -35,7 +35,7 @@ RUN mkdir -p /opt/fuzz \
     -lpthread -lm -lrt \
     -o /opt/fuzz/flecs_script_harness
 
-RUN chmod +x /work/scripts/run_afl_in_container.sh /work/scripts/run_fuzzer.sh
+RUN chmod +x /work/scripts/run_afl_in_container.sh
 
 ENV AFL_SKIP_CPUFREQ=1
 ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
