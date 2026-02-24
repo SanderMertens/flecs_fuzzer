@@ -1,0 +1,4 @@
+.git
+out
+__pycache__/
+*.pyc

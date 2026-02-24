@@ -1,0 +1,42 @@
+using flecs.meta
+using flecs.script.math
+
+struct Vec3 {
+  x = f64
+  y = f64
+  z = f64
+}
+
+struct MathSample {
+  trig = f64
+  power = f64
+  root = f64
+  dot_value = f64
+  len_value = f64
+  mixed = Vec3
+  unit = Vec3
+}
+
+const a = Vec3: {1.0e1, -2.5e1, 3.125e1}
+const b = Vec3: {2.0, 4.0, -6.0}
+const axis = Vec3: {3.0, 4.0, 0.0}
+
+const trig: sin(PI / 6.0) + cos(PI / 3.0) + tan(PI / 4.0)
+const power: pow(1.0e2, 0.5) + exp2(3.0) - log10(1.0e3)
+const root: sqrt(1.6e1) + abs(-2.5)
+const mixed: lerp($a, $b, 0.25)
+const unit: normalize($axis)
+const dot_value: dot($a, $b)
+const len_value: length($axis)
+
+math_entity {
+  MathSample: {
+    trig: $trig
+    power: $power
+    root: $root
+    dot_value: $dot_value
+    len_value: $len_value
+    mixed: $mixed
+    unit: $unit
+  }
+}

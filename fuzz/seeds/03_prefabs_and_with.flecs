@@ -1,0 +1,28 @@
+using flecs.meta
+
+struct Attack {
+  value = f32
+}
+
+struct Defense {
+  value = f32
+}
+
+prefab Ship {
+  Attack: {10}
+  Defense: {5}
+}
+
+prefab Tank : Ship {
+  Attack: {20}
+  Defense: {25}
+}
+
+with Ship {
+  scout_a {}
+  scout_b {}
+}
+
+battle_tank : Tank {
+  Attack: {30}
+}

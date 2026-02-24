@@ -1,0 +1,31 @@
+using flecs.meta
+
+struct Position {
+  x = f32
+  y = f32
+}
+
+struct Size {
+  width = f32
+  height = f32
+}
+
+template Marker {
+  prop width = flecs.meta.f32: 4
+  prop height = flecs.meta.f32: 2
+  prop x = flecs.meta.f32: 0
+  prop y = flecs.meta.f32: 0
+
+  marker {
+    Position: {$x, $y}
+    Size: {$width, $height}
+  }
+}
+
+entity_a {
+  Marker: {x: 10, y: 20}
+}
+
+entity_b {
+  Marker: {x: -5, y: 3, width: 7}
+}

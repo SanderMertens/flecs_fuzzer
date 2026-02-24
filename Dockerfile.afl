@@ -1,0 +1,43 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    afl++ \
+    build-essential \
+    ca-certificates \
+    clang \
+    git \
+    make \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work
+COPY . /work
+
+# Install Bake using the same flow as Flecs CI.
+RUN git clone https://github.com/SanderMertens/bake /opt/bake \
+    && make -C /opt/bake/build-$(uname) \
+    && /opt/bake/bake setup --local \
+    && ln -sf /opt/bake/bake /usr/local/bin/bake
+
+# Ensure Flecs builds with Bake in this image.
+RUN cd /work/flecs && bake --cfg debug
+
+# Build AFL-instrumented script harness against source files (not distr).
+RUN mkdir -p /opt/fuzz \
+    && FLECS_SRCS="$(find /work/flecs/src -name '*.c' -print | sort)" \
+    && afl-clang-fast -std=gnu99 -O1 -g -DFLECS_SCRIPT_MATH \
+    -I/work/flecs/include \
+    -I/work/flecs/src \
+    /work/fuzz/flecs_script_harness.c \
+    ${FLECS_SRCS} \
+    -lpthread -lm -lrt \
+    -o /opt/fuzz/flecs_script_harness
+
+RUN chmod +x /work/scripts/run_afl_in_container.sh /work/scripts/run_fuzzer.sh
+
+ENV AFL_SKIP_CPUFREQ=1
+ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+
+CMD ["/work/scripts/run_afl_in_container.sh", "300", "/work/out"]

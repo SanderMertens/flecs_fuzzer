@@ -1,0 +1,19 @@
+Planet {}
+SpaceShip {}
+Faction {}
+Engine {}
+FasterThanLight {}
+
+Earth { Planet }
+
+my_spaceship { SpaceShip }
+
+my_spaceship {
+  (Faction, Earth)
+  FasterThanLight
+  engine { Engine }
+}
+
+my_spaceship.engine {
+  FasterThanLight
+}

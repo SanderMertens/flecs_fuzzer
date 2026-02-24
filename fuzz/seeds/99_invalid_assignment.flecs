@@ -1,0 +1,10 @@
+using flecs.meta
+
+struct Position {
+  x = f32
+  y = f32
+}
+
+broken_entity {
+  Position: {x: 10, y: }
+}

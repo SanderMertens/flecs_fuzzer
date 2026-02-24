@@ -1,0 +1,30 @@
+using flecs.meta
+
+struct Position {
+  x = f32
+  y = f32
+}
+
+struct Velocity {
+  x = f32
+  y = f32
+}
+
+enum Team {
+  Red,
+  Blue
+}
+
+const speed = 3.5
+
+ship_1 {
+  Position: {x: 10, y: 20}
+  Velocity: {$speed, 0}
+  Team: {Red}
+}
+
+ship_2 {
+  Position: {30, 40}
+  Velocity: {-$speed, 1}
+  Team: {Blue}
+}

@@ -1,0 +1,23 @@
+using flecs.meta
+
+struct Nameplate {
+  value = string
+}
+
+struct Mass {
+  value = f32
+}
+
+root {
+  Nameplate: {"root"}
+
+  with Mass {
+    child_a { Mass: {1.5} }
+    child_b { Mass: {2.5} }
+  }
+
+  {
+    Nameplate: {"anonymous child"}
+    Mass: {3.5}
+  }
+}
