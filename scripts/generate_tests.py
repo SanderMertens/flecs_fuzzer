@@ -5,6 +5,8 @@ import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
+FRAME_RE = re.compile(r"^\s*#\d+\s+.*$")
+
 
 def discover_crash_files(out_dir: Path) -> List[Path]:
     crash_files: List[Path] = []
@@ -49,8 +51,33 @@ def extract_stack_from_log(log_path: Path, max_frames: int) -> List[str]:
         return []
 
     text = log_path.read_text(encoding="utf-8", errors="replace")
-    stack = re.findall(r"^\s*#\d+\s+.*$", text, flags=re.MULTILINE)
-    return stack[:max_frames]
+    return extract_primary_stack(text, max_frames)
+
+
+def extract_primary_stack(text: str, max_frames: int) -> List[str]:
+    err_match = re.search(r"ERROR: AddressSanitizer: ([^\n]+)", text)
+    lines = text.splitlines()
+    start_line = 0
+    if err_match:
+        start_line = text[: err_match.start()].count("\n")
+
+    stack: List[str] = []
+    in_primary_stack = False
+    for line in lines[start_line:]:
+        if FRAME_RE.match(line):
+            stack.append(line)
+            in_primary_stack = True
+            if len(stack) >= max_frames:
+                break
+            continue
+
+        if in_primary_stack:
+            break
+
+    if not stack:
+        stack = re.findall(r"^\s*#\d+\s+.*$", text, flags=re.MULTILINE)[:max_frames]
+
+    return stack
 
 
 def collect_stacks(asan_log_dir: Path, max_frames: int) -> Dict[str, List[str]]:
