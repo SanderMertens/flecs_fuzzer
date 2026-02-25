@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flecs Fuzzer Fixer"
+  short_description: "Run script fuzzer repros, fix failures, commit per case"
+  default_prompt: "Use $flecs-script-fuzzer-fixer to run README repro commands, fix failing Fuzzing tests, and commit each fix separately."
