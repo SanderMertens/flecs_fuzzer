@@ -1,0 +1,21 @@
+foo {}
+
+bar {
+    hello {}
+}
+
+"world" {
+    foo
+    bar
+    bar.hello
+}
+
+_ {
+    flecs.meta.i32: {10}
+    flecs.meta.f32: {10.5}
+}
+
+{
+    flecs.meta.f32: {10e1}
+    flecs.meta.f64: {10.2e-1}
+}

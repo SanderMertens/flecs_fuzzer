@@ -1,0 +1,10 @@
+foo {}
+
+const x: new {
+    foo
+    flecs.meta.i32: {10}
+}
+
+const y: new e {
+    foo
+}

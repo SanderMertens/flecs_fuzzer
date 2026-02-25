@@ -1,0 +1,101 @@
+using flecs.meta
+
+Planet {}
+Station {}
+Faction {}
+Rel {}
+Tgt {}
+
+struct Nameplate {
+  value = string
+}
+
+struct Orbit {
+  radius = f64
+  phase = f64
+}
+
+struct Shader {
+  filename = string
+  code = string
+}
+
+enum Team {
+  Red,
+  Blue
+}
+
+const orbit_radius: 32.5
+
+Earth { Planet }
+Mars { Planet }
+
+template Outpost {
+  prop phase = flecs.meta.f64: 0.25
+
+  station {
+    Nameplate: {"outpost station"}
+    Orbit: {radius: $orbit_radius, phase: $phase}
+    Team: {Blue}
+  }
+}
+
+@tree Parent
+parent_root {
+  Nameplate: {"parent storage root"}
+
+  fleet_alpha {
+    (Faction, Earth)
+    Team: {Red}
+    Outpost: {phase: 0.5}
+  }
+
+  fleet_beta {
+    (Faction, Mars)
+    Outpost: {phase: 1.0}
+
+    {
+      Nameplate: {"anonymous maintenance bay"}
+    }
+  }
+}
+
+@tree ChildOf
+childof_root {
+  dock_a {
+    Outpost: {phase: 1.5}
+  }
+
+  dock_b {
+    @tree Parent
+    parent_section {
+      nested_parent_a {}
+      nested_parent_b {}
+    }
+  }
+}
+
+mixed_root {
+  shader_bank {
+    (Shader, Station): {
+      filename: "station.glsl",
+      code: `
+        void main() \{
+          gl_Position = vec4(0.0);
+        }`
+      }
+  }
+
+  @tree Parent
+  parent_zone {
+    (Rel, Tgt) {
+      relay {
+        @tree ChildOf
+        links {
+          link_a {}
+          link_b {}
+        }
+      }
+    }
+  }
+}

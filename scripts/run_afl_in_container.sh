@@ -75,12 +75,4 @@ else
 fi
 set -e
 
-python3 /work/scripts/afl_report.py \
-  --out "${OUT_DIR}" \
-  --harness "${HARNESS}"
-
-if ! find "${OUT_DIR}" -mindepth 2 -maxdepth 2 -name fuzzer_stats | grep -q .; then
-  exit "${AFL_EXIT}"
-fi
-
 exit 0

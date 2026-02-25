@@ -1,0 +1,3 @@
+const x: 10
+const y: 30 + x
+const z: $y * 30 / x
