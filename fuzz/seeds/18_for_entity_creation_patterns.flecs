@@ -1,0 +1,33 @@
+using flecs.meta
+
+struct Position {
+  x = f32
+  y = f32
+}
+
+struct Cell {
+  value = i32
+}
+
+for i in -1..2 {
+  "named_{$i}" {
+    Position: {x: $i * 10, y: $i * 5}
+  }
+}
+
+for i in 0..3 {
+  _ {
+    Position: {x: $i, y: -$i}
+  }
+}
+
+grid {
+  for x in 0..3 {
+    for y in 0..2 {
+      "cell_{$x}_{$y}" {
+        Position: {x: $x, y: $y}
+        Cell: {value: ($x * 10) + $y}
+      }
+    }
+  }
+}

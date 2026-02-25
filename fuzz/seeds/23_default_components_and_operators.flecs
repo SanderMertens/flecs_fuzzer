@@ -1,0 +1,19 @@
+using flecs.meta
+
+struct Position {
+  x = f32
+  y = f32
+}
+
+SpaceShip {}
+HasFtl {}
+
+fleet {
+  SpaceShip; HasFtl
+  pilot_a, pilot_b, pilot_c
+}
+
+with Position {
+  waypoint_a = 10, 20
+  waypoint_b = 20, 30
+}

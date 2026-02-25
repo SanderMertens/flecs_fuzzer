@@ -1,0 +1,17 @@
+module gameplay.transform
+using flecs.meta
+
+struct Position {
+  x = f32
+  y = f32
+}
+
+struct Velocity {
+  x = f32
+  y = f32
+}
+
+ship {
+  Position: {10, 20}
+  Velocity: {1, 2}
+}

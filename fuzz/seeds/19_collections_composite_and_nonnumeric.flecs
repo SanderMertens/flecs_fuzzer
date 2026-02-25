@@ -1,0 +1,38 @@
+using flecs.meta
+
+struct Position {
+  x = f32
+  y = f32
+}
+
+PositionArray {
+  array: {type: Position, count: 3}
+}
+
+PositionVector {
+  vector: {type: Position}
+}
+
+NameVector {
+  vector: {type: string}
+}
+
+FlagVector {
+  vector: {type: bool}
+}
+
+route {
+  PositionArray: [
+    {x: 0, y: 0},
+    {x: 10, y: 5},
+    {x: 20, y: 10}
+  ]
+
+  PositionVector: [
+    {x: -1, y: 2},
+    {x: 4, y: 8}
+  ]
+
+  NameVector: ["alpha", "beta", "gamma"]
+  FlagVector: [true, false, true, true]
+}

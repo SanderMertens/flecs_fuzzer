@@ -1,0 +1,58 @@
+using flecs.meta
+
+struct Position {
+  x = f32
+  y = f32
+}
+
+struct Color {
+  r = f32
+  g = f32
+  b = f32
+}
+
+struct TrafficLight {
+  red = entity
+  orange = entity
+  green = entity
+}
+
+struct EntityRef {
+  value = entity
+}
+
+const red_light: new signal_red {
+  Color: {r: 1, g: 0, b: 0}
+}
+
+const orange_light: new signal_orange {
+  Color: {r: 1, g: 0.5, b: 0}
+}
+
+intersection {
+  with Position(10, 20) {
+    const green_light: new {
+      Color: {r: 0, g: 1, b: 0}
+    }
+
+    controller {
+      TrafficLight: {
+        red: $red_light
+        orange: $orange_light
+        green: $green_light
+      }
+    }
+  }
+
+  holder {
+    EntityRef: {
+      value: new waypoint {
+        Position: {x: 30, y: 40}
+
+        child {
+          Position: {x: 31, y: 41}
+        }
+      }
+    }
+  }
+}

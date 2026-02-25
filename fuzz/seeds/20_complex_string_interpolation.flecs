@@ -1,0 +1,25 @@
+using flecs.meta
+
+struct Label {
+  value = string
+}
+
+struct Message {
+  a = string
+  b = string
+}
+
+const ship_name: "Voyager"
+const sector: 7
+const x: 12
+const y: -3
+const speed: 42.5
+const escaped: "literal variable \$ship_name and literal expr \{2 + 2}"
+
+"ship_{$ship_name}_{($sector * 2) + 1}" {
+  Label: {"$ship_name @ sector {$sector}, pos=({$x}, {$y}), half_speed={($speed / 2) + 1}"}
+  Message: {
+    a: "distance_sq={($x * $x) + ($y * $y)}"
+    b: $escaped
+  }
+}

@@ -1,0 +1,35 @@
+using flecs.meta
+
+SpaceShip {}
+HasWeapons {}
+Stealth {}
+
+struct Position {
+  x = f32
+  y = f32
+}
+
+struct Velocity {
+  x = f32
+  y = f32
+}
+
+struct Callsign {
+  prefix = string
+  suffix = string
+}
+
+const alpha = Callsign: {prefix: "A", suffix: "01"}
+
+with SpaceShip, HasWeapons, Position(10, 20), Velocity(1, -1) {
+  scout_a {}
+  scout_b {}
+
+  with Stealth {
+    scout_c {}
+  }
+
+  with $alpha {
+    scout_named {}
+  }
+}

@@ -1,0 +1,47 @@
+using flecs.meta
+
+struct Position {
+  x = f32
+  y = f32
+}
+
+struct Color {
+  r = f32
+  g = f32
+  b = f32
+}
+
+struct Emissive {
+  value = f32
+}
+
+const state: 2
+const daytime = bool: false
+
+traffic_light {
+  if $daytime {
+    Emissive: {value: 0}
+  } else {
+    Emissive: {value: 1}
+  }
+
+  if $state == 0 {
+    idle {}
+  } else if $state == 1 {
+    warning {}
+  } else {
+    alarm {}
+  }
+
+  Position: match $state {
+    0: {x: 0, y: 0}
+    1: {x: 10, y: 20}
+    _: {x: 20, y: 40}
+  }
+
+  Color: match $state {
+    0: {r: 0, g: 1, b: 0}
+    1: {r: 1, g: 1, b: 0}
+    _: {r: 1, g: 0, b: 0}
+  }
+}

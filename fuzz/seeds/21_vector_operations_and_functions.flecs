@@ -1,0 +1,53 @@
+using flecs.meta
+using flecs.script.math
+
+struct Vec4 {
+  x = f64
+  y = f64
+  z = f64
+  w = f64
+}
+
+struct VectorBundle {
+  base = Vec4
+  add = Vec4
+  sub = Vec4
+  scaled = Vec4
+  mixed = Vec4
+  norm = Vec4
+  dot_value = f64
+  len_value = f64
+}
+
+source_a {
+  Vec4: {1, 2, 3, 4}
+}
+
+source_b {
+  Vec4: {4, 3, 2, 1}
+}
+
+const a: source_a[Vec4]
+const b: source_b[Vec4]
+
+const add_v: $a + $b
+const sub_v: $a - $b
+const scaled_v: ($a * 2) + 1
+
+const mixed_v: lerp($a, $b, 0.25)
+const norm_v: normalize($a)
+const dot_v: dot($a, $b)
+const len_v: length($a)
+
+result {
+  VectorBundle: {
+    base: $a
+    add: $add_v
+    sub: $sub_v
+    scaled: $scaled_v
+    mixed: $mixed_v
+    norm: $norm_v
+    dot_value: $dot_v
+    len_value: $len_v
+  }
+}

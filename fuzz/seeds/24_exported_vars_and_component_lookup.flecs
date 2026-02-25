@@ -1,0 +1,22 @@
+using flecs.meta
+
+struct Level {
+  width = i32
+  depth = i32
+}
+
+struct Grid {
+  width = i32
+  depth = i32
+}
+
+Game {
+  Level: {width: 64, depth: 32}
+}
+
+const level: Game[Level]
+export const tile_count: $level.width * $level.depth
+
+grid {
+  Grid: {width: $level.width, depth: $level.depth}
+}
