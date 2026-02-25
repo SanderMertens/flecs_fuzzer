@@ -47,14 +47,19 @@ To generate test cases from the found crashes, run:
 ./scripts/generate_tests.py
 ```
 
-This will generate a new test case for the script/Fuzzing test suite in the linked flecs repository. To run the tests, run this from the flecs directory:
+This will generate a new test case for the script/Fuzzing test suite in the linked flecs repository. 
+
+To reproduce the issues found by the fuzzer, run the following commands:
 
 ```
-bake run test/script -- Fuzzing -j 12
+docker build -f Dockerfile.repro -t flecs-repro .
+docker run --rm flecs-repro bash -lc "cd /work/flecs && bake run test/script -- Fuzzing -j 12"
 ```
 
-Or alternatively, run the tests with address sanitizer:
+This runs the tests in the same kind of environment that the fuzzer runs in.
+
+Alternatively this command can be used to run the tests with asan:
 
 ```
-bake run --cfg sanitize test/script -- Fuzzing -j 12
+docker run --rm flecs-repro bash -lc "cd /work/flecs && bake run test/script --cfg sanitize -- Fuzzing -j 12"
 ```

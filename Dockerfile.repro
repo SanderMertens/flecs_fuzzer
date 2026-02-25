@@ -1,0 +1,26 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    clang \
+    git \
+    make \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Bake using the same flow as the AFL image.
+RUN git clone https://github.com/SanderMertens/bake /opt/bake \
+    && make -C /opt/bake/build-$(uname) \
+    && /opt/bake/bake setup --local \
+    && ln -sf /opt/bake/bake /usr/local/bin/bake
+
+WORKDIR /work/flecs
+COPY flecs /work/flecs
+
+# Build once so the container is ready to reproduce crashes immediately.
+RUN bake --cfg debug
+
+CMD ["bash"]
