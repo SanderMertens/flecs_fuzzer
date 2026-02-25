@@ -1,14 +1,25 @@
+
 @tree Parent
 e {
-    f {}
+    f {
+    	Parent
+    }
 
     @tree ChildOf
     g {
-        h {
-            @tree Parent
-            i {
-                g {}
-            }
+        hij {
+            OrderedChildren
         }
+
+        Parent: {f}
+    }
+
+    {
+        e
+        flecs.meta.i32: {10}
+    }
+
+    _ {
+        e.f
     }
 }

@@ -89,7 +89,7 @@ static int read_input(const char *path, char **out, size_t *out_len)
     return 0;
 }
 
-static void fuzz_one(const char *script)
+static void fuzz_script_run(const char *script)
 {
     ecs_world_t *world = ecs_init();
     if (!world) {
@@ -104,7 +104,53 @@ static void fuzz_one(const char *script)
     ecs_log_set_level(-4);
     seen_internal_error = false;
 
-    (void)ecs_script_run(world, "afl_input", script, NULL);
+    ecs_script_run(world, "afl_input", script, NULL);
+    ecs_fini(world);
+}
+
+static void fuzz_script_init(const char *script) {
+    ecs_world_t *world = ecs_init();
+    if (!world) {
+        return;
+    }
+
+#ifdef FLECS_SCRIPT_MATH
+    ECS_IMPORT(world, FlecsScriptMath);
+#endif
+
+    /* Hide regular parser errors, keep fatal logs only. */
+    ecs_log_set_level(-4);
+    seen_internal_error = false;
+
+    ecs_script(world, {
+        .code = script
+    });
+
+    ecs_fini(world);
+}
+
+static void fuzz_script_update(const char *script) {
+    ecs_world_t *world = ecs_init();
+    if (!world) {
+        return;
+    }
+
+#ifdef FLECS_SCRIPT_MATH
+    ECS_IMPORT(world, FlecsScriptMath);
+#endif
+
+    /* Hide regular parser errors, keep fatal logs only. */
+    ecs_log_set_level(-4);
+    seen_internal_error = false;
+
+    ecs_entity_t s = ecs_script(world, {
+        .code = script
+    });
+
+    ecs_script_update(world, s, 0, script);
+    ecs_script_update(world, s, 0, script);
+    ecs_script_update(world, s, 0, script);
+
     ecs_fini(world);
 }
 
@@ -129,7 +175,8 @@ int main(int argc, char *argv[])
     }
 
     if (input_len > 0) {
-        fuzz_one(input);
+        fuzz_script_run(input);
+        fuzz_script_update(input);
     }
 
     free(input);
