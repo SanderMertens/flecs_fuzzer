@@ -53,13 +53,13 @@ To reproduce the issues found by the fuzzer, run the following commands:
 
 ```
 docker build -f Dockerfile.repro -t flecs-repro .
-docker run --rm flecs-repro bash -lc "cd /work/flecs && bake run test/script -- Fuzzing -j 12"
+docker run --rm flecs-repro bash -lc "cd /work/flecs && bake rebuild -D FLECS_SCRIPT_MATH -D FLECS_USE_OS_ALLOC; bake test/script -D FLECS_SCRIPT_MATH -D FLECS_USE_OS_ALLOC; bake run test/script -- Fuzzing -j 12"
 ```
 
-This runs the tests in the same kind of environment that the fuzzer runs in.
-
-Alternatively this command can be used to run the tests with asan:
+If that works, proceed to run the tests with asan:
 
 ```
-docker run --rm flecs-repro bash -lc "cd /work/flecs && bake run test/script --cfg sanitize -- Fuzzing -j 12"
+docker run --rm flecs-repro bash -lc "cd /work/flecs && bake rebuild -D FLECS_SCRIPT_MATH -D FLECS_USE_OS_ALLOC --cfg sanitize; bake test/script -D FLECS_SCRIPT_MATH -D FLECS_USE_OS_ALLOC --cfg sanitize; bake run test/script --cfg sanitize -- Fuzzing -j 12"
 ```
+
+These scripts run the tests in the same kind of environment that the fuzzer runs in.
