@@ -391,7 +391,7 @@ def generate_report(
 
     styles = """
 :root {
-  --bg: hsl(210, 12%, 16%);
+  --bg: hsl(210, 12%, 12%);
   --panel: hsl(214, 10%, 13%);
   --panel-soft: hsl(214, 10%, 15%);
   --border: rgba(255, 255, 255, 0.07);
